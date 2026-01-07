@@ -1,113 +1,48 @@
-pipeline { 
+pipeline {
+    agent any
 
-    agent any 
+    stages {
 
-    parameters{ 
+        stage('Checkout Code') {
+            steps {
+                git 'https://github.com/tejasai1997/Jenkins-Sonarqube-Docker.git'
+            }
+        }
 
-        string(name: 'IMAGE_NAME', defaultValue: 'myimage', description: 'Docker image name') 
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                    sonar-scanner \
+                    -Dsonar.projectKey=onix-website-scan \
+                    -Dsonar.projectBaseDir=.
+                    '''
+                }
+            }
+        }
 
-        string(name: 'CONTAINER_NAME', defaultValue: 'mycontainer', description: 'Docker container name') 
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
 
-        string(name: 'PORT', defaultValue: '8081', description: 'Host port to expose') 
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t onix-website:latest .'
+            }
+        }
 
-    } 
+        stage('Deploy Docker Container') {
+            steps {
+                sh '''
+                docker rm -f onix-container || true
+                docker run -d -p 8080:80 --name onix-container onix-website:latest
+                '''
+            }
+        }
+    }
+}
 
- 
-
- 
-
-    tools{ 
-
-        maven 'maven' 
-
-    } 
-
- 
-
-    stages { 
-
-        stage('Code') { 
-
-            steps { 
-
-                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Himani-523/jenkins-docker.git']]) 
-
-  
-
-            } 
-
-        } 
-
-          
-
-         stage('SonarQube Analysis') { 
-
-             environment { 
-
-                 SONAR_HOST_URL = 'http://13.49.145.183:9000' 
-
-                 SONAR_AUTH_TOKEN = credentials('sonarqube') 
-
-             } 
-
-             steps { 
-
-                 script { 
-
-                     def scannerHome = tool 'sonarqube' 
-
-                     withSonarQubeEnv('sonarqube') { 
-
-                         sh """ 
-
-                             ${scannerHome}/bin/sonar-scanner \ 
-
-                             -Dsonar.projectKey=demo-pipeline \ 
-
-                             -Dsonar.sources=. \ 
-
-                             -Dsonar.host.url=${SONAR_HOST_URL} \ 
-
-                             -Dsonar.login=${SONAR_AUTH_TOKEN} 
-
-                         """ 
-
-                     } 
-
-                 } 
-
-             } 
-
-         } 
-
- 
-
-     
-
-     
-
-        stage('Build') { 
-
-            steps { 
-
-                sh 'docker build -t $IMAGE_NAME .' 
-
-            } 
-
-        } 
-
- 
-
-        stage('Deploy') { 
-
-            steps { 
-
-                sh 'docker run -itd --name $CONTAINER_NAME -p $PORT:80 $IMAGE_NAME' 
-
-            } 
-
-        } 
-
-    } 
-
-} 
