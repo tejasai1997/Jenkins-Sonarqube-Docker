@@ -31,11 +31,13 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t onix-website:latest .'
+                sh '''
+                docker build -t onix-website:latest .
+                '''
             }
         }
 
-        stage('Deploy Docker Container') {
+        stage('Deploy Application (Docker Container)') {
             steps {
                 sh '''
                 docker rm -f onix-container || true
@@ -45,4 +47,5 @@ pipeline {
         }
     }
 }
+
 
